@@ -1,5 +1,8 @@
 package com.github.idimabr.listeners;
 
+import com.github.idimabr.RaphaAutoPickup;
+import com.sk89q.worldguard.protection.ApplicableRegionSet;
+import com.sk89q.worldguard.protection.flags.DefaultFlag;
 import org.apache.commons.lang.math.RandomUtils;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -18,14 +21,26 @@ public class BreakListener implements Listener {
 
     @EventHandler
     public void onBreak(BlockBreakEvent e){
-        if(e.isCancelled()) return;
+
+        if(e.isCancelled()){
+            e.setCancelled(true);
+            return;
+        }
 
         Player player = e.getPlayer();
         Block block = e.getBlock();
-        PlayerInventory inventory = player.getInventory();
-        ItemStack itemInHand = inventory.getItemInHand();
+
+        ApplicableRegionSet regions = RaphaAutoPickup.getWorldGuard().getRegionManager(player.getWorld()).getApplicableRegions(block.getLocation());
+
+        if(regions.size() > 0 && !regions.allows(DefaultFlag.BLOCK_BREAK)){
+            e.setCancelled(true);
+            return;
+        }
 
         e.setCancelled(true);
+
+        PlayerInventory inventory = player.getInventory();
+        ItemStack itemInHand = inventory.getItemInHand();
 
         Collection<ItemStack> originalDrops = e.getBlock().getDrops(itemInHand);
         if(originalDrops.isEmpty()){
@@ -47,9 +62,12 @@ public class BreakListener implements Listener {
             );
 
         Collection<ItemStack> drops = new ArrayList<>(originalDrops);
+        System.out.println(drops);
         for(int i = 0;i < multiply;i++)
-            for (ItemStack drop : drops)
+            for (ItemStack drop : drops) {
+                drop.setData(block.getState().getData());
                 inventory.addItem(drop);
+            }
 
 
         if(itemInHand != null)

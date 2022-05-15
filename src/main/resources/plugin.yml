@@ -3,3 +3,4 @@ version: '${project.version}'
 main: com.github.idimabr.RaphaAutoPickup
 prefix: RaphaAutoPickup
 authors: [ iDimaBR ]
+depend: [ WorldGuard ]
