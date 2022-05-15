@@ -21,7 +21,6 @@ public class BreakListener implements Listener {
 
     @EventHandler
     public void onBreak(BlockBreakEvent e){
-
         if(e.isCancelled()){
             e.setCancelled(true);
             return;
@@ -36,8 +35,6 @@ public class BreakListener implements Listener {
             e.setCancelled(true);
             return;
         }
-
-        e.setCancelled(true);
 
         PlayerInventory inventory = player.getInventory();
         ItemStack itemInHand = inventory.getItemInHand();
@@ -56,13 +53,12 @@ public class BreakListener implements Listener {
 
         int multiply = 1;
 
-        if(itemInHand != null && itemInHand.containsEnchantment(Enchantment.LOOT_BONUS_BLOCKS))
+        if(itemInHand != null && itemInHand.containsEnchantment(Enchantment.LOOT_BONUS_BLOCKS) && isMultiply(block.getType()))
             multiply = getAmountForDrop(
                     itemInHand.getEnchantmentLevel(Enchantment.LOOT_BONUS_BLOCKS)
             );
 
         Collection<ItemStack> drops = new ArrayList<>(originalDrops);
-        System.out.println(drops);
         for(int i = 0;i < multiply;i++)
             for (ItemStack drop : drops) {
                 drop.setData(block.getState().getData());
@@ -100,5 +96,19 @@ public class BreakListener implements Listener {
             bonus = 1;
         }
         return bonus;
+    }
+
+    private boolean isMultiply(Material material){
+        switch(material){
+            case COAL_ORE:
+            case DIAMOND_ORE:
+            case EMERALD_ORE:
+            case LAPIS_ORE:
+            case QUARTZ_ORE:
+            case REDSTONE_ORE:
+            case GLOWING_REDSTONE_ORE:
+                return true;
+        }
+        return false;
     }
 }
