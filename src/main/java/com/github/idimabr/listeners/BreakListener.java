@@ -1,9 +1,12 @@
 package com.github.idimabr.listeners;
 
 import com.github.idimabr.RaphaAutoPickup;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.DefaultFlag;
-import org.apache.commons.lang.math.RandomUtils;
+import org.apache.commons.lang3.RandomUtils;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -11,23 +14,41 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public class BreakListener implements Listener {
 
+
+    private final ImmutableList<Material> cropList = ImmutableList.of(
+            Material.CROPS,
+            Material.SUGAR_CANE,
+            Material.NETHER_WARTS,
+            Material.COCOA,
+            Material.CARROT,
+            Material.POTATO,
+            Material.CACTUS
+    );
+
     @EventHandler
     public void onBreak(BlockBreakEvent e){
+        Player player = e.getPlayer();
+
+        if(player.getGameMode() == GameMode.CREATIVE) return;
+
         if(e.isCancelled()){
             e.setCancelled(true);
             return;
         }
-
-        Player player = e.getPlayer();
         Block block = e.getBlock();
+
+        System.out.println(block.getType());
+
+        System.out.println(block.getData());
 
         ApplicableRegionSet regions = RaphaAutoPickup.getWorldGuard().getRegionManager(player.getWorld()).getApplicableRegions(block.getLocation());
 
@@ -40,14 +61,26 @@ public class BreakListener implements Listener {
         ItemStack itemInHand = inventory.getItemInHand();
 
         Collection<ItemStack> originalDrops = e.getBlock().getDrops(itemInHand);
-        if(originalDrops.isEmpty()){
-            block.setType(Material.AIR);
-            return;
-        }
 
         if(!hasSpace(player)){
             player.sendMessage("§cVocê não tem espaço no inventário!");
+            e.setCancelled(true);
             player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6f, 0.6f);
+            return;
+        }
+
+        System.out.println(originalDrops);
+
+        if(originalDrops.isEmpty()){
+            if(cropList.contains(block.getType())){
+                for (ItemStack drop : getCropDrop(block.getType(), block.getData()))
+                    inventory.addItem(drop);
+
+                block.setType(Material.AIR);
+                return;
+            }
+
+            block.setType(Material.AIR);
             return;
         }
 
@@ -61,18 +94,7 @@ public class BreakListener implements Listener {
         Collection<ItemStack> drops = new ArrayList<>(originalDrops);
         for(int i = 0;i < multiply;i++)
             for (ItemStack drop : drops) {
-                drop.setData(block.getState().getData());
                 inventory.addItem(drop);
-            }
-
-
-        if(itemInHand != null)
-            if(itemInHand.containsEnchantment(Enchantment.DURABILITY)){
-                int durabilityLevel = itemInHand.getEnchantmentLevel(Enchantment.DURABILITY);
-                if( ( 60 + (40 / (durabilityLevel + 1)) ) > RandomUtils.nextInt(100))
-                    changeDurability(player);
-            }else{
-                changeDurability(player);
             }
 
         player.giveExp(e.getExpToDrop());
@@ -81,13 +103,6 @@ public class BreakListener implements Listener {
 
     private boolean hasSpace(Player player){
         return player.getInventory().firstEmpty() != -1;
-    }
-
-    private void changeDurability(Player player){
-        ItemStack item = player.getItemInHand().clone();
-        item.setDurability((short) (item.getDurability() + 1));
-        player.setItemInHand(item);
-        player.updateInventory();
     }
 
     private int getAmountForDrop(int fortuneLevel){
@@ -110,5 +125,48 @@ public class BreakListener implements Listener {
                 return true;
         }
         return false;
+    }
+
+    private List<ItemStack> getCropDrop(Material material, int data){
+        System.out.println(material);
+        System.out.println(data);
+        int amount = 1;
+        List<ItemStack> drops = Lists.newArrayList();
+        switch(material){
+            case NETHER_WARTS:
+                if(data == 3) amount = RandomUtils.nextInt(2, 4);
+                drops.add(new ItemStack(Material.NETHER_STALK, amount));
+                break;
+            case COCOA:
+                amount = 3;
+                drops.add(new ItemStack(Material.INK_SACK, amount, (short) 3));
+                break;
+            case CROPS:
+                amount = 2;
+                drops.add(new ItemStack(Material.SEEDS, amount, (short) 3));
+                if(data == 7)
+                    drops.add(new ItemStack(Material.WHEAT, 1));
+                break;
+            case MELON_BLOCK:
+                amount = RandomUtils.nextInt(2, 7);
+                drops.add(new ItemStack(Material.MELON, amount));
+                break;
+            case POTATO:
+                drops.add(new ItemStack(Material.POTATO_ITEM, amount));
+                if(RandomUtils.nextInt(0, 100) < 3)
+                    drops.add(new ItemStack(Material.POISONOUS_POTATO, 1));
+                break;
+            case CARROT:
+                if(data == 7) amount = RandomUtils.nextInt(2, 4);
+                drops.add(new ItemStack(Material.CARROT_ITEM, amount));
+                break;
+            default:
+                drops.add(new ItemStack(material, amount));
+                break;
+        }
+
+        System.out.println("Drops finais: " + drops);
+
+        return drops;
     }
 }
